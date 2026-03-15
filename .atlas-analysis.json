@@ -1,0 +1,96 @@
+{
+  "projectType": "saas",
+  "projectName": "VShop",
+  "projectDescription": "A React Native mobile app for Valorant players to check their in-game shop, Night Market, bundles, accessories, profile, and manage a skin wishlist with background notifications.",
+  "theme": "almond",
+  "primaryColor": "#040404",
+  "lightColor": null,
+  "darkColor": "#040404",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "getting-started/installation", "getting-started/setup"]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/shop",
+              "features/night-market",
+              "features/bundles",
+              "features/accessories",
+              "features/gallery-wishlist",
+              "features/profile"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": ["configuration/environment-variables", "configuration/localization", "configuration/regions"]
+          },
+          {
+            "group": "Security",
+            "pages": ["security/overview", "security/authentication"]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": ["development/contributing", "development/architecture", "development/building"]
+          },
+          {
+            "group": "Reference",
+            "pages": ["reference/state-management", "reference/valorant-api", "reference/assets"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "View daily Valorant skin shop with countdown timer",
+    "Night Market discounted skin offers",
+    "Featured bundle browsing",
+    "Accessory shop (buddies, sprays, player cards, titles)",
+    "Skin gallery with wishlist management",
+    "Background notifications when wishlisted skins appear in shop",
+    "Player profile with XP progress and currency balances",
+    "Multi-region support (EU, NA, AP, KR)",
+    "Internationalization (i18next) with Weblate translations",
+    "Donator/supporter features via Stripe payments",
+    "Runs entirely on-device — credentials sent directly to Riot servers"
+  ],
+  "publicApiSurface": [
+    "getEntitlementsToken(accessToken)",
+    "getUserId(accessToken)",
+    "getUsername(accessToken, entitlementsToken, userId, region)",
+    "getShop(accessToken, entitlementsToken, region, userId)",
+    "parseShop(shop: StorefrontResponse)",
+    "getBalances(accessToken, entitlementsToken, region, userId)",
+    "getProgress(accessToken, entitlementsToken, region, userId)",
+    "reAuth(version)",
+    "loadAssets()",
+    "getAssets()",
+    "fetchSkins(language?)",
+    "fetchBuddies(language?)",
+    "fetchSprays(language?)",
+    "fetchPlayerCards(language?)",
+    "fetchPlayerTitles(language?)",
+    "fetchBundle(bundleId, language?)",
+    "fetchVersion()",
+    "checkDonator(riotId)",
+    "getCurrencies()",
+    "generatePaymentSheet({amount, riotId, currencyCode})",
+    "checkShop(wishlist: string[])",
+    "initBackgroundFetch()",
+    "stopBackgroundFetch()",
+    "wishlistBgTask()",
+    "useUserStore",
+    "useWishlistStore",
+    "useFeatureStore"
+  ]
+}
