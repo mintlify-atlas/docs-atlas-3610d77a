@@ -1,0 +1,437 @@
+---
+title: Assets
+description: Reference for the asset loading system in VShop — caching, fetching, and reading Valorant game assets from valorant-api.com.
+---
+
+All game asset data (skins, buddies, sprays, player cards, player titles, and bundles) is sourced from [valorant-api.com](https://valorant-api.com). Assets are cached on the device file system to avoid redundant network requests between app sessions.
+
+```typescript
+import { loadAssets, getAssets, fetchVersion } from '~/utils/valorant-assets';
+```
+
+---
+
+## Caching
+
+Assets are stored as a single JSON file at:
+
+```
+{FileSystem.cacheDirectory}/valorant_assets.json
+```
+
+The cache is considered valid when both conditions match:
+- `storedAssets.riotClientVersion === currentVersion`
+- `storedAssets.language === currentLanguage`
+
+If either value differs, all assets are re-fetched and the cache is overwritten. This ensures the asset data stays in sync when Riot ships a new client version or when the user changes their language setting.
+
+<Info>
+  Language is determined by `getVAPILang()` from `utils/localization`. The value must match a language code accepted by valorant-api.com (e.g. `"en-US"`, `"ko-KR"`).
+</Info>
+
+### StoredAssets
+
+The structure written to and read from the cache file:
+
+<ResponseField name="riotClientVersion" type="string | undefined">
+  The Riot client version at the time the cache was written. Used for cache invalidation.
+</ResponseField>
+
+<ResponseField name="language" type="string | undefined">
+  The language code at the time the cache was written. Used for cache invalidation.
+</ResponseField>
+
+<ResponseField name="skins" type="ValorantSkin[]">
+  All weapon skins.
+</ResponseField>
+
+<ResponseField name="buddies" type="ValorantBuddyAccessory[]">
+  All gun buddy accessories.
+</ResponseField>
+
+<ResponseField name="sprays" type="ValorantSprayAccessory[]">
+  All spray accessories.
+</ResponseField>
+
+<ResponseField name="cards" type="ValorantCardAccessory[]">
+  All player card accessories.
+</ResponseField>
+
+<ResponseField name="titles" type="ValorantTitleAccessory[]">
+  All player title accessories.
+</ResponseField>
+
+---
+
+## Core functions
+
+### loadAssets
+
+```typescript
+async function loadAssets(): Promise<void>
+```
+
+The main entry point for the asset system. Call this once at app startup, before any component that reads from the asset cache.
+
+<Steps>
+  <Step title="Check the cache">
+    Reads `valorant_assets.json` from the expo-file-system cache directory. If the file does not exist, proceeds to fetch.
+  </Step>
+  <Step title="Validate cache freshness">
+    Compares the stored `riotClientVersion` and `language` against the current values. If both match, loads the cached data into memory and returns early.
+  </Step>
+  <Step title="Fetch all assets">
+    If the cache is stale or missing, calls `fetchSkins`, `fetchBuddies`, `fetchSprays`, `fetchPlayerCards`, and `fetchPlayerTitles` in sequence with the current language.
+  </Step>
+  <Step title="Write the cache">
+    Serialises the newly fetched assets (including `riotClientVersion` and `language`) to `valorant_assets.json`.
+  </Step>
+</Steps>
+
+<Warning>
+  `loadAssets` must complete before calling `getAssets()`, `parseShop()`, or any function that reads skin, buddy, spray, card, or title data. If called before assets are loaded, `getAssets()` returns an object with empty arrays.
+</Warning>
+
+---
+
+### getAssets
+
+```typescript
+function getAssets(): StoredAssets
+```
+
+Returns the in-memory asset cache synchronously. This is the fast path used throughout the app to look up skins and accessories without hitting the network or disk.
+
+#### Returns
+
+The current `StoredAssets` object. See the [StoredAssets](#storedassets) type above for its shape.
+
+<Note>
+  The returned object will have empty arrays for all asset arrays if `loadAssets()` has not completed yet. Always await `loadAssets()` at app startup.
+</Note>
+
+---
+
+### fetchVersion
+
+```typescript
+async function fetchVersion(): Promise<string>
+```
+
+Fetches the current Riot client version string from `https://valorant-api.com/v1/version`.
+
+#### Returns
+
+A `Promise<string>` resolving to the `riotClientVersion` string (e.g. `"43.0.1.4195386.4190634"`). This value is also used as the `X-Riot-ClientVersion` request header in authenticated Riot API calls.
+
+---
+
+## Asset fetch functions
+
+All fetch functions below call valorant-api.com. Each accepts an optional `language` parameter; if omitted, the value from `getVAPILang()` is used.
+
+### fetchSkins
+
+```typescript
+async function fetchSkins(language?: string): Promise<ValorantSkin[]>
+```
+
+Fetches all weapon skins from `https://valorant-api.com/v1/weapons/skins`.
+
+#### Parameters
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantSkin[]>`.
+
+<Expandable title="ValorantSkin properties">
+  <ResponseField name="uuid" type="string">
+    The skin's unique identifier.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="themeUuid" type="string">
+    UUID of the skin collection/theme this skin belongs to.
+  </ResponseField>
+  <ResponseField name="contentTierUuid" type="string | undefined">
+    UUID of the content tier (e.g. Select, Deluxe, Premium, Ultra). Absent on standard skins.
+  </ResponseField>
+  <ResponseField name="displayIcon" type="string | undefined">
+    URL to the skin's display icon.
+  </ResponseField>
+  <ResponseField name="wallpaper" type="string | undefined">
+    URL to the skin's wallpaper image, if available.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+  <ResponseField name="chromas" type="ISkinChroma[]">
+    Available chroma variants for this skin.
+  </ResponseField>
+  <ResponseField name="levels" type="ISkinLevel[]">
+    Available levels for this skin. `levels[0].uuid` is used as the offer ID in the storefront.
+  </ResponseField>
+</Expandable>
+
+---
+
+### fetchBuddies
+
+```typescript
+async function fetchBuddies(language?: string): Promise<ValorantBuddyAccessory[]>
+```
+
+Fetches all gun buddy accessories from `https://valorant-api.com/v1/buddies`.
+
+#### Parameters
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantBuddyAccessory[]>`.
+
+<Expandable title="ValorantBuddyAccessory properties">
+  <ResponseField name="uuid" type="string">
+    The buddy's unique identifier.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="isHiddenIfNotOwned" type="boolean">
+    Whether this buddy is hidden in-game if the player does not own it.
+  </ResponseField>
+  <ResponseField name="themeUuid" type="string">
+    UUID of the associated theme.
+  </ResponseField>
+  <ResponseField name="displayIcon" type="string | undefined">
+    URL to the buddy's display icon.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+  <ResponseField name="levels" type="ValorantBuddyLevel[]">
+    Available levels for this buddy. The accessory store offer ID matches `levels[0].uuid`.
+  </ResponseField>
+</Expandable>
+
+---
+
+### fetchSprays
+
+```typescript
+async function fetchSprays(language?: string): Promise<ValorantSprayAccessory[]>
+```
+
+Fetches all spray accessories from `https://valorant-api.com/v1/sprays`.
+
+#### Parameters
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantSprayAccessory[]>`.
+
+<Expandable title="ValorantSprayAccessory properties">
+  <ResponseField name="uuid" type="string">
+    The spray's unique identifier.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="category" type="string">
+    Spray category.
+  </ResponseField>
+  <ResponseField name="themeUuid" type="string">
+    UUID of the associated theme.
+  </ResponseField>
+  <ResponseField name="isNullSpray" type="boolean">
+    Whether this is the empty/null spray.
+  </ResponseField>
+  <ResponseField name="hideIfNotOwned" type="boolean">
+    Whether this spray is hidden if the player does not own it.
+  </ResponseField>
+  <ResponseField name="displayIcon" type="string">
+    URL to the spray's display icon.
+  </ResponseField>
+  <ResponseField name="fullIcon" type="string">
+    URL to the full-resolution spray icon.
+  </ResponseField>
+  <ResponseField name="fullTransparentIcon" type="string">
+    URL to the full-resolution spray icon with a transparent background. Used in the accessory shop display.
+  </ResponseField>
+  <ResponseField name="animationPng" type="string">
+    URL to the animated PNG version of the spray.
+  </ResponseField>
+  <ResponseField name="animationGif" type="string">
+    URL to the animated GIF version of the spray.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+  <ResponseField name="levels" type="ValorantSprayLevel[]">
+    Available spray levels.
+  </ResponseField>
+</Expandable>
+
+---
+
+### fetchPlayerCards
+
+```typescript
+async function fetchPlayerCards(language?: string): Promise<ValorantCardAccessory[]>
+```
+
+Fetches all player card accessories from `https://valorant-api.com/v1/playercards`.
+
+#### Parameters
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantCardAccessory[]>`.
+
+<Expandable title="ValorantCardAccessory properties">
+  <ResponseField name="uuid" type="string">
+    The card's unique identifier. Used to match against accessory store offer IDs.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="isHiddenIfNotOwned" type="boolean">
+    Whether this card is hidden if the player does not own it.
+  </ResponseField>
+  <ResponseField name="themeUuid" type="string">
+    UUID of the associated theme.
+  </ResponseField>
+  <ResponseField name="displayIcon" type="string">
+    URL to the card's small display icon.
+  </ResponseField>
+  <ResponseField name="smallArt" type="string">
+    URL to the small art variant.
+  </ResponseField>
+  <ResponseField name="wideArt" type="string">
+    URL to the wide art variant.
+  </ResponseField>
+  <ResponseField name="largeArt" type="string">
+    URL to the large art variant. Used as `displayIcon` in the accessory shop.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+</Expandable>
+
+---
+
+### fetchPlayerTitles
+
+```typescript
+async function fetchPlayerTitles(language?: string): Promise<ValorantTitleAccessory[]>
+```
+
+Fetches all player title accessories from `https://valorant-api.com/v1/playertitles`.
+
+#### Parameters
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantTitleAccessory[]>`.
+
+<Expandable title="ValorantTitleAccessory properties">
+  <ResponseField name="uuid" type="string">
+    The title's unique identifier. Used to match against accessory store offer IDs.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="isHiddenIfNotOwned" type="boolean">
+    Whether this title is hidden if the player does not own it.
+  </ResponseField>
+  <ResponseField name="titleText" type="string">
+    The actual title text displayed beneath the player's name in-game.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+</Expandable>
+
+---
+
+### fetchBundle
+
+```typescript
+async function fetchBundle(bundleId: string, language?: string): Promise<ValorantBundle | null>
+```
+
+Fetches a single bundle by UUID from `https://valorant-api.com/v1/bundles/{bundleId}`. Returns `null` if the bundle is not found (non-200 response).
+
+#### Parameters
+
+<ParamField path="bundleId" type="string" required>
+  The UUID of the bundle to fetch. This corresponds to `DataAssetID` on the bundle objects in `StorefrontResponse.FeaturedBundle.Bundles`.
+</ParamField>
+
+<ParamField path="language" type="string">
+  A valorant-api.com language code. Defaults to the value returned by `getVAPILang()`.
+</ParamField>
+
+#### Returns
+
+A `Promise<ValorantBundle | null>`. Returns `null` when the API returns a non-200 status code.
+
+<Expandable title="ValorantBundle properties">
+  <ResponseField name="uuid" type="string">
+    The bundle's unique identifier.
+  </ResponseField>
+  <ResponseField name="displayName" type="string">
+    Localised display name.
+  </ResponseField>
+  <ResponseField name="displayNameSubText" type="string | undefined">
+    Optional sub-text displayed below the bundle name.
+  </ResponseField>
+  <ResponseField name="description" type="string">
+    Localised description.
+  </ResponseField>
+  <ResponseField name="extraDescription" type="string | undefined">
+    Optional additional description text.
+  </ResponseField>
+  <ResponseField name="promoDescription" type="string | undefined">
+    Optional promotional description text.
+  </ResponseField>
+  <ResponseField name="useAdditionalContext" type="boolean">
+    Whether additional context is shown in the bundle UI.
+  </ResponseField>
+  <ResponseField name="displayIcon" type="string">
+    URL to the primary bundle display icon.
+  </ResponseField>
+  <ResponseField name="displayIcon2" type="string">
+    URL to the secondary bundle display icon.
+  </ResponseField>
+  <ResponseField name="verticalPromoImage" type="string | undefined">
+    URL to the vertical promotional image used on bundle detail screens.
+  </ResponseField>
+  <ResponseField name="assetPath" type="string">
+    Internal Unreal Engine asset path.
+  </ResponseField>
+</Expandable>
+
+<Tip>
+  `fetchBundle` uses `validateStatus: () => true` so that HTTP errors do not throw. The function returns `null` for any non-200 status, which happens when a `DataAssetID` from the storefront does not have a corresponding entry on valorant-api.com.
+</Tip>

@@ -1,0 +1,50 @@
+---
+title: Security overview
+description: How VShop handles your Riot Games credentials and what data its servers do and do not store.
+---
+
+VShop is designed so that your Riot Games credentials never leave your device to VShop's infrastructure. Authentication happens directly between your phone and Riot Games servers — VShop's own backend is never in the path of your login.
+
+<Note>
+VShop is not endorsed by or affiliated with Riot Games. The source code is publicly available for review at [github.com/VShopApp/mobile](https://github.com/VShopApp/mobile).
+</Note>
+
+## What VShop's servers do and do not receive
+
+<CardGroup cols={2}>
+  <Card title="VShop servers" icon="server">
+    VShop's backend (`EXPO_PUBLIC_API_URL`) only handles **donator status checks** and **Stripe payment processing**. Your user ID is used to look up donator status; no credentials are involved.
+  </Card>
+  <Card title="Riot Games servers" icon="shield">
+    All authentication tokens, session cookies, shop data, and wallet balances are fetched directly from Riot's APIs (`auth.riotgames.com`, `entitlements.auth.riotgames.com`, `pd.<region>.a.pvp.net`). VShop's servers never see these.
+  </Card>
+</CardGroup>
+
+## How credentials and session data are stored
+
+VShop uses an embedded WebView to load the Riot Games login page. When you sign in, the WebView stores session cookies locally on your device through React Native's `CookieManager`. These cookies are managed entirely by the operating system's cookie store — they are never read or transmitted to VShop's servers.
+
+Your selected region is persisted in `AsyncStorage` on-device so the app knows which regional API endpoint (`pd.<region>.a.pvp.net`) to contact.
+
+<Info>
+Access tokens obtained after login are JWT strings. The app decodes them locally using `jwtDecode` to extract your user ID (`sub` claim) — no server round-trip is needed for this step.
+</Info>
+
+## Logout and credential removal
+
+Logging out clears all locally stored session data:
+
+- **All cookies** are deleted by calling `CookieManager.clearAll(true)`, which performs a native full cookie wipe.
+- **Region** is removed from `AsyncStorage`.
+
+After logout, no session material remains on the device and the app returns to the setup screen.
+
+<Warning>
+If an error occurs during the login flow, VShop automatically calls `CookieManager.clearAll(true)` and redirects to setup as a safety fallback, ensuring no partial session data is left behind.
+</Warning>
+
+## Open-source auditability
+
+Because VShop is open source, you can inspect exactly how authentication, data fetching, and storage work. The community is encouraged to review the code and report any concerns.
+
+[View the source on GitHub](https://github.com/VShopApp/mobile)

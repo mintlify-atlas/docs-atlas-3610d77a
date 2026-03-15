@@ -1,0 +1,80 @@
+---
+title: "Gallery & wishlist"
+description: "Browse the full Valorant skin catalogue, add skins to your wishlist, and get notified when a wishlisted skin appears in your daily shop."
+---
+
+The gallery gives you a searchable list of every weapon skin in the game. From here you can build a wishlist of skins you want, and optionally receive a push notification the moment one of them appears in your daily shop.
+
+## Browsing the gallery
+
+The gallery loads all skins from the local Valorant asset data. Only skins that have a content tier (i.e. paid skins with a rarity) are shown — default and level-0 skins are excluded.
+
+### Searching
+
+Type into the search bar at the top to filter skins by name. The search is case-insensitive and uses a 100 ms debounce, so the list updates shortly after you stop typing.
+
+### Sort order
+
+Skins are sorted so that your wishlisted skins always appear first. Within each group (wishlisted and non-wishlisted), skins retain their default order from the asset data.
+
+## Managing the wishlist
+
+Each skin row has a **⋮** (three-dot) menu on the right side. Tap it to open a context menu with the following options:
+
+<AccordionGroup>
+  <Accordion title="Add to wishlist / Remove from wishlist">
+    Toggles the skin's wishlist status. Wishlisted skins show a ⭐ prefix in the gallery and in the daily shop when they appear as an offer.
+  </Accordion>
+  <Accordion title="Levels">
+    Opens a media popup showing each upgrade level's display icon or streamed video.
+  </Accordion>
+  <Accordion title="Chromas">
+    Opens a media popup showing each chroma variant's full render or streamed video.
+  </Accordion>
+</AccordionGroup>
+
+### Persistence
+
+Your wishlist is saved to **AsyncStorage** using Zustand's persist middleware under the key `wishlist`. It survives app restarts and does not require a network connection.
+
+## Background notifications
+
+VShop can check your daily shop in the background and notify you when a wishlisted skin is available.
+
+<Warning>
+  Background notifications are a **donator-only** feature. You must be a verified donator for the notification check to run.
+</Warning>
+
+### How it works
+
+<Steps>
+  <Step title="Enable notifications in Settings">
+    Turn on the wishlist notification toggle in the app's Settings screen. This sets `notificationEnabled` to `true` in your local wishlist store.
+  </Step>
+  <Step title="Background fetch runs automatically">
+    The app registers a background fetch task that runs at a minimum interval of 15 minutes (subject to OS scheduling). Each time the task fires it checks whether a full shop check is needed.
+  </Step>
+  <Step title="Once-per-day check (UTC)">
+    The app compares today's UTC date against the timestamp stored in AsyncStorage under the key `lastWishlistCheck`. If the dates differ (or no check has ever run), it fetches the current daily shop.
+  </Step>
+  <Step title="Notification is sent">
+    If a wishlisted skin is found in the shop, you receive a notification naming the skin. If no match is found, you receive a notification confirming none of your wishlisted skins are in today's shop. If an error occurs, an error notification is sent instead.
+  </Step>
+</Steps>
+
+### Notification details
+
+| Detail | Value |
+|---|---|
+| Android notification channel | `wishlist` |
+| Channel importance | Maximum |
+| Sound | Yes |
+| Badge | No |
+
+<Note>
+  The background check runs at most once per calendar day (UTC). Multiple background fetch invocations on the same day will skip the shop check after the first successful run.
+</Note>
+
+<Info>
+  The background task uses the stored session cookie to silently re-authenticate with Riot's servers. No manual action is required after initial login.
+</Info>

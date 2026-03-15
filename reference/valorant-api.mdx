@@ -1,0 +1,397 @@
+---
+title: Valorant API
+description: Reference for all functions that communicate with Riot's private PVP and public valorant-api.com endpoints, plus the VCurrencies and VItemTypes constants.
+---
+
+All functions in `utils/valorant-api.ts` communicate with Riot's private PVP endpoints using an `accessToken` and `entitlementsToken` obtained during the auth flow. Every authenticated request includes the `X-Riot-ClientVersion` and `X-Riot-ClientPlatform` headers.
+
+<Warning>
+  These functions call Riot's private, undocumented APIs. They are not officially supported and may break without notice on client version changes.
+</Warning>
+
+---
+
+## Authentication
+
+### getEntitlementsToken
+
+```typescript
+async function getEntitlementsToken(accessToken: string): Promise<string>
+```
+
+Exchanges a Riot access token for an entitlements token by calling the Riot entitlements endpoint.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token (Bearer token) obtained from the auth flow.
+</ParamField>
+
+#### Returns
+
+A `Promise` that resolves to the `entitlements_token` string from the `EntitlementResponse`.
+
+---
+
+### getUserId
+
+```typescript
+function getUserId(accessToken: string): string
+```
+
+Decodes the access token JWT and extracts the player's Riot UUID from the `sub` claim. This is a synchronous, local operation — no network request is made.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token JWT.
+</ParamField>
+
+#### Returns
+
+The player UUID string from the token's `sub` claim.
+
+---
+
+### getUsername
+
+```typescript
+async function getUsername(
+  accessToken: string,
+  entitlementsToken: string,
+  userId: string,
+  region: string
+): Promise<string>
+```
+
+Fetches the player's in-game name via the Riot Name Service API.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token.
+</ParamField>
+
+<ParamField path="entitlementsToken" type="string" required>
+  The entitlements JWT obtained from `getEntitlementsToken`.
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  The player's Riot UUID obtained from `getUserId`.
+</ParamField>
+
+<ParamField path="region" type="string" required>
+  The player's shard region. One of `"eu"`, `"na"`, `"ap"`, `"kr"`.
+</ParamField>
+
+#### Returns
+
+A `Promise` that resolves to the player's `GameName` string. Returns `"?"` if the `GameName` field is empty in the API response.
+
+---
+
+### reAuth
+
+```typescript
+const reAuth: (version: string) => Promise<AxiosResponse>
+```
+
+Initiates a re-authentication request against the Riot authorization endpoint using a custom TLS configuration. Used to refresh the session without user interaction.
+
+#### Parameters
+
+<ParamField path="version" type="string" required>
+  The Riot client version string, used in the `User-Agent` header. Retrieve the current version with `fetchVersion()` from `utils/valorant-assets.ts`.
+</ParamField>
+
+#### Returns
+
+The raw `AxiosResponse` from the Riot authorization endpoint.
+
+<Note>
+  This request sets `withCredentials: true` and uses a custom HTTPS agent with specific TLS cipher ordering to match the Riot client's handshake requirements.
+</Note>
+
+---
+
+## Shop
+
+### getShop
+
+```typescript
+async function getShop(
+  accessToken: string,
+  entitlementsToken: string,
+  region: string,
+  userId: string
+): Promise<StorefrontResponse>
+```
+
+Fetches the raw storefront data from Riot's PVP endpoint for the given player.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token.
+</ParamField>
+
+<ParamField path="entitlementsToken" type="string" required>
+  The entitlements JWT.
+</ParamField>
+
+<ParamField path="region" type="string" required>
+  The player's shard region.
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  The player's Riot UUID.
+</ParamField>
+
+#### Returns
+
+A `Promise<StorefrontResponse>` — the raw Riot storefront payload. Pass this to `parseShop` to get the structured app types.
+
+<Expandable title="StorefrontResponse shape">
+  <ResponseField name="FeaturedBundle" type="object">
+    The currently featured bundle(s).
+    <Expandable title="properties">
+      <ResponseField name="Bundle" type="object">
+        The primary featured bundle.
+      </ResponseField>
+      <ResponseField name="Bundles" type="object[]">
+        All active featured bundles. Each has `ID`, `DataAssetID`, `Items`, `DurationRemainingInSeconds`, and optionally `ItemOffers`.
+      </ResponseField>
+      <ResponseField name="BundleRemainingDurationInSeconds" type="number">
+        Seconds until the featured bundle rotates.
+      </ResponseField>
+    </Expandable>
+  </ResponseField>
+  <ResponseField name="SkinsPanelLayout" type="object">
+    The daily skin shop.
+    <Expandable title="properties">
+      <ResponseField name="SingleItemStoreOffers" type="object[]">
+        Array of up to four skin offers. Each has `OfferID`, `Cost`, and `Rewards`.
+      </ResponseField>
+      <ResponseField name="SingleItemOffersRemainingDurationInSeconds" type="number">
+        Seconds until the daily shop resets.
+      </ResponseField>
+    </Expandable>
+  </ResponseField>
+  <ResponseField name="AccessoryStore" type="object">
+    The accessory store.
+    <Expandable title="properties">
+      <ResponseField name="AccessoryStoreOffers" type="object[]">
+        Offers for buddies, sprays, player cards, and titles.
+      </ResponseField>
+      <ResponseField name="AccessoryStoreRemainingDurationInSeconds" type="number">
+        Seconds until the accessory store resets.
+      </ResponseField>
+    </Expandable>
+  </ResponseField>
+  <ResponseField name="BonusStore" type="object | undefined">
+    Night market data. Only present when the night market is active.
+    <Expandable title="properties">
+      <ResponseField name="BonusStoreOffers" type="object[]">
+        Discounted skin offers. Each includes `DiscountPercent` and `DiscountCosts`.
+      </ResponseField>
+      <ResponseField name="BonusStoreRemainingDurationInSeconds" type="number">
+        Seconds until the night market closes.
+      </ResponseField>
+    </Expandable>
+  </ResponseField>
+</Expandable>
+
+---
+
+### parseShop
+
+```typescript
+async function parseShop(shop: StorefrontResponse): Promise<ParsedShop>
+```
+
+Transforms a raw `StorefrontResponse` into the structured types the app uses. Joins offer data against the in-memory asset cache to attach display names, icons, and tier information.
+
+#### Parameters
+
+<ParamField path="shop" type="StorefrontResponse" required>
+  The raw storefront payload returned by `getShop`.
+</ParamField>
+
+#### Returns
+
+A `Promise` resolving to an object with the following shape:
+
+<ResponseField name="main" type="SkinShopItem[]">
+  Daily skin offers enriched with `ValorantSkin` data and a `price` (VP cost).
+</ResponseField>
+
+<ResponseField name="bundles" type="BundleShopItem[]">
+  Featured bundles enriched with `ValorantBundle` data. Each bundle includes a `price` (sum of discounted item prices) and an `items` array of `SkinShopItem`.
+</ResponseField>
+
+<ResponseField name="nightMarket" type="NightMarketItem[]">
+  Night market offers. Each extends `SkinShopItem` with `discountedPrice` and `discountPercent`. Empty array when the night market is inactive.
+</ResponseField>
+
+<ResponseField name="accessory" type="AccessoryShopItem[]">
+  Accessory offers normalised to `{ uuid, displayName, displayIcon?, price }` regardless of the underlying accessory type (buddy, card, spray, or title).
+</ResponseField>
+
+<ResponseField name="remainingSecs" type="object">
+  Per-section countdown timers in seconds.
+  <Expandable title="properties">
+    <ResponseField name="main" type="number">Seconds until the daily skin shop resets.</ResponseField>
+    <ResponseField name="bundles" type="number[]">Per-bundle countdowns.</ResponseField>
+    <ResponseField name="nightMarket" type="number">Seconds until the night market closes.</ResponseField>
+    <ResponseField name="accessory" type="number">Seconds until the accessory store resets.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  `parseShop` calls `fetchBundle` for each active featured bundle and `getAssets()` to resolve skin, buddy, card, spray, and title data. Call `loadAssets()` before calling `parseShop` to ensure the asset cache is populated.
+</Note>
+
+---
+
+## Wallet & progression
+
+### getBalances
+
+```typescript
+async function getBalances(
+  accessToken: string,
+  entitlementsToken: string,
+  region: string,
+  userId: string
+): Promise<Balances>
+```
+
+Fetches the player's wallet balances from Riot's store endpoint.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token.
+</ParamField>
+
+<ParamField path="entitlementsToken" type="string" required>
+  The entitlements JWT.
+</ParamField>
+
+<ParamField path="region" type="string" required>
+  The player's shard region.
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  The player's Riot UUID.
+</ParamField>
+
+#### Returns
+
+A `Promise` resolving to:
+
+<ResponseField name="vp" type="number">
+  VALORANT Points balance. Currency ID: `85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741`.
+</ResponseField>
+
+<ResponseField name="rad" type="number">
+  Radianite Points balance. Currency ID: `e59aa87c-4cbf-517a-5983-6e81511be9b7`.
+</ResponseField>
+
+<ResponseField name="fag" type="number">
+  Free Agents currency balance. Currency ID: `f08d4ae3-939c-4576-ab26-09ce1f23bb37`.
+</ResponseField>
+
+<ResponseField name="kc" type="number">
+  Kingdom Credits balance. Currency ID: `85ca954a-41f2-ce94-9b45-8ca3dd39a00d`.
+</ResponseField>
+
+---
+
+### getProgress
+
+```typescript
+async function getProgress(
+  accessToken: string,
+  entitlementsToken: string,
+  region: string,
+  userId: string
+): Promise<Progress>
+```
+
+Fetches the player's account XP progression.
+
+#### Parameters
+
+<ParamField path="accessToken" type="string" required>
+  A valid Riot access token.
+</ParamField>
+
+<ParamField path="entitlementsToken" type="string" required>
+  The entitlements JWT.
+</ParamField>
+
+<ParamField path="region" type="string" required>
+  The player's shard region.
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  The player's Riot UUID.
+</ParamField>
+
+#### Returns
+
+A `Promise` resolving to:
+
+<ResponseField name="level" type="number">
+  The player's current account level.
+</ResponseField>
+
+<ResponseField name="xp" type="number">
+  The player's current XP within the level.
+</ResponseField>
+
+---
+
+## Constants
+
+### VCurrencies
+
+Defined in `utils/misc.ts`. Maps currency names to their Riot UUID strings. Used as keys into `Cost` and `Balances` objects from the Riot API.
+
+```typescript
+export const VCurrencies = {
+  VP:  '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741', // VALORANT Points
+  RAD: 'e59aa87c-4cbf-517a-5983-6e81511be9b7', // Radianite Points
+  FAG: 'f08d4ae3-939c-4576-ab26-09ce1f23bb37', // Free Agents
+  KC:  '85ca954a-41f2-ce94-9b45-8ca3dd39a00d', // Kingdom Credits
+};
+```
+
+| Key | Currency | Usage |
+|-----|----------|-------|
+| `VP` | VALORANT Points | Skin and bundle purchases |
+| `RAD` | Radianite Points | Skin upgrades |
+| `FAG` | Free Agents | Agent contracts |
+| `KC` | Kingdom Credits | Accessory store purchases |
+
+### VItemTypes
+
+Defined in `utils/misc.ts`. Maps item category names to their Riot item type ID strings. Used to filter items by type in shop and bundle parsing.
+
+```typescript
+export const VItemTypes = {
+  SkinLevel:          'e7c63390-eda7-46e0-bb7a-a6abdacd2433',
+  SkinChroma:         '3ad1b2b2-acdb-4524-852f-954a76ddae0a',
+  Agent:              '01bb38e1-da47-4e6a-9b3d-945fe4655707',
+  ContractDefinition: 'f85cb6f7-33e5-4dc8-b609-ec7212301948',
+  Buddy:              'dd3bf334-87f3-40bd-b043-682a57a8dc3a',
+  Spray:              'd5f120f8-ff8c-4aac-92ea-f2b5acbe9475',
+  PlayerCard:         '3f296c07-64c3-494c-923b-fe692a4fa1bd',
+  PlayerTitle:        'de7caa6b-adf7-4588-bbd1-143831e786c6',
+};
+```
+
+<Tip>
+  `parseShop` uses `VItemTypes.SkinLevel` to filter bundle items down to skins only before enriching them with asset data.
+</Tip>

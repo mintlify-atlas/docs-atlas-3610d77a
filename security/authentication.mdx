@@ -1,0 +1,89 @@
+---
+title: Authentication
+description: How VShop authenticates you with Riot Games using OAuth2 via an embedded WebView, and how background re-authentication works.
+---
+
+VShop authenticates you through Riot Games' OAuth2 authorization code flow. You enter your credentials directly on Riot's own login page — VShop's code never has access to your username or password.
+
+## Initial login flow
+
+<Steps>
+  <Step title="Load the Riot authorization page">
+    The `LoginWebView` component opens an embedded WebView pointed at the Riot Games authorization endpoint:
+
+    ```
+    https://auth.riotgames.com/authorize
+      ?redirect_uri=https://playvalorant.com/opt_in
+      &client_id=play-valorant-web-prod
+      &response_type=token%20id_token
+      &nonce=1
+      &scope=account%20openid
+    ```
+
+    You enter your Riot credentials directly on this page. VShop's JavaScript cannot read the form fields — the page is served by Riot Games.
+  </Step>
+
+  <Step title="Extract the access token from the redirect URI">
+    After a successful login, Riot redirects the WebView to `https://playvalorant.com/opt_in` with the `access_token` in the URL fragment. The app detects this navigation event and calls `getAccessTokenFromUri()` to parse the token out of the URI.
+  </Step>
+
+  <Step title="Fetch the entitlements token">
+    The access token is exchanged for an entitlements token by sending a `POST` request to `https://entitlements.auth.riotgames.com/api/token/v1/` with the access token in the `Authorization: Bearer` header.
+  </Step>
+
+  <Step title="Decode the user ID">
+    The user ID is extracted locally from the access token JWT without any network request:
+
+    ```typescript
+    const userId = jwtDecode(accessToken).sub;
+    ```
+  </Step>
+
+  <Step title="Fetch username, shop, progress, and balances">
+    Using the access token, entitlements token, user ID, and region, the app makes direct requests to Riot's regional APIs:
+
+    - `getUsername()` — `PUT https://pd.<region>.a.pvp.net/name-service/v2/players`
+    - `getShop()` — `POST https://pd.<region>.a.pvp.net/store/v3/storefront/<userId>`
+    - `getProgress()` — `GET https://pd.<region>.a.pvp.net/account-xp/v1/players/<userId>`
+    - `getBalances()` — `GET https://pd.<region>.a.pvp.net/store/v1/wallet/<userId>`
+
+    All requests include `X-Riot-ClientVersion` and `X-Riot-ClientPlatform` headers expected by Riot's API.
+  </Step>
+
+  <Step title="Check donator status and navigate to shop">
+    After all Riot data is loaded, the app calls `checkDonator(userId)` against VShop's own backend to determine donator perks. This is the only call that reaches VShop's servers. The app then navigates to the shop screen.
+  </Step>
+</Steps>
+
+<Note>
+If any step in the login flow throws an error, `CookieManager.clearAll(true)` is called automatically and the app returns to the setup screen, preventing a stuck or partially authenticated state.
+</Note>
+
+## Background re-authentication
+
+For features like wishlist background checks, the app can re-authenticate silently using the `reAuth()` function. This reuses the session cookies already stored on the device by the WebView — no credentials are re-entered.
+
+`reAuth()` sends a `POST` to `https://auth.riotgames.com/api/v1/authorization` with the following TLS cipher configuration to match the Riot client's expected handshake:
+
+```typescript
+ciphers: [
+  "TLS_CHACHA20_POLY1305_SHA256",
+  "TLS_AES_128_GCM_SHA256",
+  "TLS_AES_256_GCM_SHA384",
+  "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+].join(":")
+```
+
+The minimum TLS version is enforced at `TLSv1.2` with `honorCipherOrder: true`.
+
+<Info>
+`reAuth()` relies on cookies being present from a previous interactive login. It does not store or transmit your password. If the cookies have expired, the app will prompt you to log in again via the `ReAuth` screen, which renders the same `LoginWebView`.
+</Info>
+
+## Session expiry and re-login
+
+When your session cookies expire, the app renders the `ReAuth` screen. This screen uses the same `LoginWebView` component as initial setup — you re-authenticate directly on Riot's login page and the full token refresh sequence runs again.
+
+<Warning>
+VShop does not implement its own token refresh mechanism outside of `reAuth()`. If background re-authentication fails, an interactive re-login is required.
+</Warning>

@@ -1,0 +1,64 @@
+---
+title: "First-time setup"
+description: "Complete the VShop onboarding wizard: choose your region and sign in with your Riot Games account."
+---
+
+When you open VShop for the first time, a three-screen onboarding wizard guides you through configuration. The app checks for a stored region on launch — if none is found, it routes you here automatically.
+
+<Steps>
+  <Step title="Welcome screen">
+    The first screen displays the VShop app preview and a short introduction. No action is required on this screen.
+
+    Tap **Next** to continue to region selection.
+  </Step>
+
+  <Step title="Select your region">
+    Choose the region that matches your Riot Games account.
+
+    <Note>
+      Your region determines which store data VShop fetches. Selecting the wrong region will result in incorrect or missing shop items. Your selection is saved to local storage under the key `region`.
+    </Note>
+
+    The following regions are available:
+
+    | Region | Code |
+    |--------|------|
+    | Europe | `EU` |
+    | North America | `NA` |
+    | Asia Pacific | `AP` |
+    | Korea | `KR` |
+
+    Select your region using the radio buttons, then tap **Next**.
+
+    <Warning>
+      The **Next** button remains disabled until you select a region. You cannot proceed to sign-in without making a selection.
+    </Warning>
+  </Step>
+
+  <Step title="Sign in with Riot Games">
+    The final screen loads the official Riot Games login page inside a WebView.
+
+    Enter your Riot Games credentials and complete any two-factor verification if prompted. VShop does not handle or store your credentials — they are submitted directly to Riot's authentication servers.
+
+    <Note>
+      After a successful login, Riot redirects back to VShop with an access token. VShop extracts this token from the redirect URI to authenticate future requests. Your credentials never pass through VShop's code.
+    </Note>
+
+    Once authentication completes, the app navigates you to the main interface.
+  </Step>
+</Steps>
+
+## Returning users
+
+On subsequent launches, VShop reads the `region` key from AsyncStorage. If a region is found, the app skips setup and routes directly to the re-authentication screen instead.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="View your store" icon="shop">
+    Check your daily rotating weapon skin offers in the Store tab.
+  </Card>
+  <Card title="Night Market" icon="tag">
+    See your personalized Night Market discounts when the event is active.
+  </Card>
+</CardGroup>

@@ -1,0 +1,98 @@
+---
+title: "Regions"
+description: "VShop uses your Valorant account region to connect to the correct Riot PD server. Learn how regions work and how to choose the right one."
+---
+
+VShop fetches your shop, wallet, and player XP data from Riot's **PD (Player Data) servers**. Each region has a dedicated PD server, and requests must go to the correct server for your account — using the wrong region returns empty or incorrect data.
+
+## Supported regions
+
+<CardGroup cols={2}>
+  <Card title="EU" icon="globe">
+    Europe — covers players on European Valorant accounts.
+  </Card>
+  <Card title="NA" icon="globe">
+    North America — covers players on North American Valorant accounts.
+  </Card>
+  <Card title="AP" icon="globe">
+    Asia Pacific — covers players across Asia and Oceania.
+  </Card>
+  <Card title="KR" icon="globe">
+    Korea — covers players on Korean Valorant accounts.
+  </Card>
+</CardGroup>
+
+## How region is used
+
+The region value is interpolated directly into the PD server URL for every authenticated API call:
+
+```
+https://pd.{region}.a.pvp.net/...
+```
+
+The following endpoints all use this pattern (from `utils/valorant-api.ts`):
+
+| Endpoint | Purpose |
+|---|---|
+| `https://pd.{region}.a.pvp.net/store/v3/storefront/{userId}` | Fetch daily shop, bundles, night market, and accessory shop |
+| `https://pd.{region}.a.pvp.net/store/v1/wallet/{userId}` | Fetch VP, Radianite, Free Agent, and Kingdom Credits balances |
+| `https://pd.{region}.a.pvp.net/account-xp/v1/players/{userId}` | Fetch player level and XP progress |
+| `https://pd.{region}.a.pvp.net/store/v1/offers/` | Fetch current store offer prices |
+| `https://pd.{region}.a.pvp.net/name-service/v2/players` | Resolve player display names |
+
+## Where region is stored
+
+After setup, your selected region is persisted in `AsyncStorage` under the key `"region"`. It is loaded on launch and attached to all outgoing Riot API requests for the duration of the session.
+
+## Choosing the right region
+
+<Warning>
+  Region cannot be changed after initial setup without logging out. If you select the wrong region during setup, your shop will appear empty or return data for a different account. Log out and log back in to change your region.
+</Warning>
+
+Choose the region that matches the region your Valorant account was created in — not your physical location. For example, an account registered in the EU region must use `eu` even if you are currently playing from a different country.
+
+<Tabs>
+  <Tab title="EU">
+    Select `eu` if your Valorant account was created in the European region. Your PD server will be:
+
+    ```
+    https://pd.eu.a.pvp.net/
+    ```
+  </Tab>
+  <Tab title="NA">
+    Select `na` if your Valorant account was created in the North American region. Your PD server will be:
+
+    ```
+    https://pd.na.a.pvp.net/
+    ```
+  </Tab>
+  <Tab title="AP">
+    Select `ap` if your Valorant account was created in the Asia Pacific region. Your PD server will be:
+
+    ```
+    https://pd.ap.a.pvp.net/
+    ```
+  </Tab>
+  <Tab title="KR">
+    Select `kr` if your Valorant account was created in the Korean region. Your PD server will be:
+
+    ```
+    https://pd.kr.a.pvp.net/
+    ```
+  </Tab>
+</Tabs>
+
+## Impact of choosing the wrong region
+
+If your selected region does not match your account's actual region:
+
+- The daily shop, night market, and accessory shop will appear empty.
+- Your VP, Radianite, and Kingdom Credits balances may show as zero.
+- Your player level and XP will not load.
+
+This happens because the PD server for a different region has no record of your account. The API calls succeed (no error is thrown) but return no data for your player ID.
+
+<Info>
+  The region options in VShop map directly to the `regions` constant in `utils/misc.ts`: `["eu", "na", "ap", "kr"]`.
+</Info>

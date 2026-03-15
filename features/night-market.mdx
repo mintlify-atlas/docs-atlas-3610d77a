@@ -1,0 +1,38 @@
+---
+title: "Night Market"
+description: "View your personalised discounted Night Market skins, including original prices, discounted prices, and savings percentages."
+---
+
+The Night Market is a limited-time event where Riot offers up to six personalised, discounted skins. VShop reads this data from the same storefront response as the daily shop and displays it whenever an active Night Market exists for your account.
+
+## When the Night Market is active
+
+When you have an active Night Market, the screen shows up to six skin cards along with a countdown timer.
+
+### Each card shows
+
+- **Skin name** — the name of the discounted skin.
+- **Original price** — the full VP price, shown with a strikethrough.
+- **Discounted price** — the reduced VP price you pay during the Night Market.
+- **Discount percentage** — the savings shown in green (e.g. `-49%`).
+- **Skin image** — the skin's display icon.
+
+### Levels and chromas
+
+As with the daily shop, each card has **Levels** and **Chromas** buttons that open a media popup to preview the skin's upgrade levels and colour variants.
+
+### Countdown timer
+
+The timer in the top-right corner shows how long your Night Market remains active, sourced from `BonusStoreRemainingDurationInSeconds` in the Riot API response.
+
+## When the Night Market is inactive
+
+If no Night Market is currently running on your account, VShop shows a moon icon and a message indicating there is no Night Market available.
+
+<Info>
+  Night Market availability is per-account. Even if a Night Market event is running globally, your account may not have one if it was issued at a different time.
+</Info>
+
+<Note>
+  VShop cannot predict when the next Night Market will begin. The screen only reflects what the Riot API reports for your account at the time of login.
+</Note>

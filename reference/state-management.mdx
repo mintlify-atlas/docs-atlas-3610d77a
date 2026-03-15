@@ -1,0 +1,260 @@
+---
+title: State management
+description: Reference for the three Zustand stores used across the VShop app — user session, wishlist, and feature flags.
+---
+
+VShop uses [Zustand](https://github.com/pmndrs/zustand) for global state. There are three stores, each with a focused responsibility.
+
+<CardGroup cols={3}>
+  <Card title="useUserStore" icon="user">
+    Holds authenticated user session data: identity, shops, balances, and progression.
+  </Card>
+  <Card title="useWishlistStore" icon="heart">
+    Tracks wishlisted skin UUIDs and notification preferences. Persisted to AsyncStorage.
+  </Card>
+  <Card title="useFeatureStore" icon="toggle-on">
+    Runtime feature flags: donator status and screenshot mode.
+  </Card>
+</CardGroup>
+
+---
+
+## useUserStore
+
+Stores all data for the currently authenticated player. Populated after a successful login and re-auth flow.
+
+```typescript
+import { useUserStore } from '~/hooks/useUserStore';
+```
+
+### State shape
+
+<ResponseField name="user" type="object" required>
+  The full user object.
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      The player's Riot UUID, decoded from the access token JWT.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      The player's in-game name (GameName). Falls back to `"?"` if not set.
+    </ResponseField>
+    <ResponseField name="region" type="string">
+      The player's shard region, e.g. `"na"`, `"eu"`, `"ap"`, `"kr"`.
+    </ResponseField>
+    <ResponseField name="shops" type="object">
+      Parsed storefront data.
+      <Expandable title="properties">
+        <ResponseField name="main" type="SkinShopItem[]">
+          The four daily skin offers.
+        </ResponseField>
+        <ResponseField name="bundles" type="BundleShopItem[]">
+          Active featured bundles.
+        </ResponseField>
+        <ResponseField name="nightMarket" type="NightMarketItem[]">
+          Night market offers. Empty array when the night market is inactive.
+        </ResponseField>
+        <ResponseField name="accessory" type="AccessoryShopItem[]">
+          Accessory store offers (buddies, sprays, cards, titles).
+        </ResponseField>
+        <ResponseField name="remainingSecs" type="object">
+          Seconds remaining until each shop section resets.
+          <Expandable title="properties">
+            <ResponseField name="main" type="number">
+              Seconds until the daily skin shop resets.
+            </ResponseField>
+            <ResponseField name="bundles" type="number[]">
+              Per-bundle countdown in seconds.
+            </ResponseField>
+            <ResponseField name="nightMarket" type="number">
+              Seconds until the night market closes.
+            </ResponseField>
+            <ResponseField name="accessory" type="number">
+              Seconds until the accessory store resets.
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="balances" type="object">
+      The player's current wallet balances.
+      <Expandable title="properties">
+        <ResponseField name="vp" type="number">
+          VALORANT Points (VP).
+        </ResponseField>
+        <ResponseField name="rad" type="number">
+          Radianite Points.
+        </ResponseField>
+        <ResponseField name="fag" type="number">
+          Free Agents currency.
+        </ResponseField>
+        <ResponseField name="kc" type="number">
+          Kingdom Credits.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="progress" type="object">
+      The player's account XP progression.
+      <Expandable title="properties">
+        <ResponseField name="level" type="number">
+          Current account level.
+        </ResponseField>
+        <ResponseField name="xp" type="number">
+          Current XP within the level.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Actions
+
+<ResponseField name="setUser" type="(user: typeof defaultUser) => void">
+  Replaces the entire user object in the store. Call this after fetching and parsing all user data.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useUserStore } from '~/hooks/useUserStore';
+
+export function ProfileHeader() {
+  const { user, setUser } = useUserStore();
+
+  return (
+    <>
+      <Text>{user.name}</Text>
+      <Text>Level {user.progress.level}</Text>
+      <Text>{user.balances.vp} VP</Text>
+    </>
+  );
+}
+```
+
+<Note>
+  The store is initialised with `defaultUser` — an object with empty strings, empty arrays, and zero balances. Check that `user.id !== ""` before rendering authenticated content.
+</Note>
+
+---
+
+## useWishlistStore
+
+Persists the player's wishlist to device storage using `AsyncStorage`. The store is rehydrated automatically on app start.
+
+```typescript
+import { useWishlistStore } from '~/hooks/useWishlistStore';
+```
+
+<Info>
+  The store is persisted under the `"wishlist"` key via `zustand/middleware`'s `persist` with `createJSONStorage(() => AsyncStorage)`.
+</Info>
+
+### State shape
+
+<ResponseField name="skinIds" type="string[]" required>
+  Array of skin UUID strings that the player has wishlisted. Each UUID corresponds to `ValorantSkin.levels[0].uuid`.
+</ResponseField>
+
+<ResponseField name="notificationEnabled" type="boolean" required>
+  Whether push notifications are enabled when a wishlisted skin appears in the daily shop. Defaults to `false`.
+</ResponseField>
+
+### Actions
+
+<ResponseField name="toggleSkin" type="(uuid: string) => void">
+  Adds the skin UUID if it is not already in `skinIds`, or removes it if it is. Idempotent toggle.
+</ResponseField>
+
+<ResponseField name="setNotificationEnabled" type="(value: boolean) => void">
+  Sets `notificationEnabled` to the provided boolean value.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useWishlistStore } from '~/hooks/useWishlistStore';
+
+export function SkinCard({ skin }: { skin: ValorantSkin }) {
+  const { skinIds, toggleSkin } = useWishlistStore();
+  const isWishlisted = skinIds.includes(skin.levels[0].uuid);
+
+  return (
+    <Pressable onPress={() => toggleSkin(skin.levels[0].uuid)}>
+      <Text>{isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</Text>
+    </Pressable>
+  );
+}
+```
+
+```tsx
+import { useWishlistStore } from '~/hooks/useWishlistStore';
+
+export function NotificationToggle() {
+  const { notificationEnabled, setNotificationEnabled } = useWishlistStore();
+
+  return (
+    <Switch
+      value={notificationEnabled}
+      onValueChange={setNotificationEnabled}
+    />
+  );
+}
+```
+
+---
+
+## useFeatureStore
+
+Holds runtime feature flags for the current session. Not persisted — flags reset to their defaults on app restart.
+
+```typescript
+import { useFeatureStore } from '~/hooks/useFeatureStore';
+```
+
+### State shape
+
+<ResponseField name="isDonator" type="boolean" required>
+  Whether the current user is a VShop donator. Unlocks premium features. Defaults to `false`.
+</ResponseField>
+
+<ResponseField name="screenshotModeEnabled" type="boolean" required>
+  When `true`, skin display icons are replaced with a placeholder image to obscure shop contents in screenshots. Defaults to `false`.
+</ResponseField>
+
+### Actions
+
+<ResponseField name="enableDonator" type="() => void">
+  Sets `isDonator` to `true`.
+</ResponseField>
+
+<ResponseField name="disableDonator" type="() => void">
+  Sets `isDonator` to `false`.
+</ResponseField>
+
+<ResponseField name="toggleScreenshotMode" type="() => void">
+  Toggles `screenshotModeEnabled` between `true` and `false`.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useFeatureStore } from '~/hooks/useFeatureStore';
+
+export function SettingsScreen() {
+  const { screenshotModeEnabled, toggleScreenshotMode, isDonator } =
+    useFeatureStore();
+
+  return (
+    <>
+      {isDonator && <DonatorBadge />}
+      <Switch
+        value={screenshotModeEnabled}
+        onValueChange={toggleScreenshotMode}
+      />
+    </>
+  );
+}
+```
+
+<Warning>
+  `screenshotModeEnabled` affects the `getDisplayIcon` helper in `utils/misc.ts`. Any component that renders item images should read from the store and pass the flag to `getDisplayIcon` to respect the user's preference.
+</Warning>

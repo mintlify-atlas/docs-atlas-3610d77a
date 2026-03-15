@@ -1,0 +1,81 @@
+---
+title: "Environment variables"
+description: "Configure VShop's runtime behavior using Expo environment variables set in your .env file."
+---
+
+VShop uses Expo's environment variable system. Any variable prefixed with `EXPO_PUBLIC_` is embedded into the app bundle at build time and available at runtime via `process.env`.
+
+<Warning>
+  Variables without the `EXPO_PUBLIC_` prefix are not accessible inside the app bundle. They are only available in build scripts and server-side tooling.
+</Warning>
+
+Create a `.env` file at the root of the project based on the provided example:
+
+```bash
+cp .env.example .env
+```
+
+Then fill in the values for your environment.
+
+## Variables
+
+### Core API
+
+<ParamField path="EXPO_PUBLIC_API_URL" type="string" required>
+  Base URL for the VShop backend API. Used by three functions in `utils/vshop-api.ts`:
+
+  - `GET /user/{riotId}` — `checkDonator`: checks whether a Riot account has donator status.
+  - `GET /stripe/currencies` — `getCurrencies`: fetches the list of supported payment currencies.
+  - `POST /stripe/payment-sheet` — `generatePaymentSheet`: creates a Stripe payment sheet for in-app purchases.
+
+  ```
+  EXPO_PUBLIC_API_URL=https://api.example.com
+  ```
+</ParamField>
+
+### Payments (optional)
+
+<ParamField path="EXPO_PUBLIC_STRIPE_PUBLIC_KEY" type="string">
+  Your Stripe publishable key. Required only if you are enabling in-app donation payments via Stripe. Leave blank to disable the payments flow.
+
+  ```
+  EXPO_PUBLIC_STRIPE_PUBLIC_KEY=pk_live_...
+  ```
+</ParamField>
+
+### Analytics (optional)
+
+<ParamField path="EXPO_PUBLIC_PLAUSIBLE_URL" type="string">
+  Base URL of your Plausible Analytics instance (e.g. `https://plausible.io`). Used together with `EXPO_PUBLIC_PLAUSIBLE_DOMAIN` to send `pageview` and `wishlist_check` events.
+
+  If this variable is not set, all analytics calls in `utils/plausible.ts` are silently skipped — no events are sent.
+
+  ```
+  EXPO_PUBLIC_PLAUSIBLE_URL=https://plausible.io
+  ```
+</ParamField>
+
+<ParamField path="EXPO_PUBLIC_PLAUSIBLE_DOMAIN" type="string">
+  The site domain registered in your Plausible dashboard. Events are attributed to this domain.
+
+  If either `EXPO_PUBLIC_PLAUSIBLE_URL` or `EXPO_PUBLIC_PLAUSIBLE_DOMAIN` is missing, analytics are disabled.
+
+  ```
+  EXPO_PUBLIC_PLAUSIBLE_DOMAIN=vshop.example.com
+  ```
+</ParamField>
+
+## Complete .env.example
+
+```bash .env.example
+EXPO_PUBLIC_API_URL=
+
+# Optional
+EXPO_PUBLIC_STRIPE_PUBLIC_KEY=
+EXPO_PUBLIC_PLAUSIBLE_URL=
+EXPO_PUBLIC_PLAUSIBLE_DOMAIN=
+```
+
+<Note>
+  Environment variables are baked into the app bundle at build time. After changing a `.env` value, you must rebuild the app for the change to take effect. Running `expo start` with a development build will pick up changes on the next native rebuild.
+</Note>

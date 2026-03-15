@@ -1,0 +1,44 @@
+---
+title: "Daily shop"
+description: "Browse your four rotating daily skin offers, check VP prices, and preview skin levels and chromas."
+---
+
+The daily shop shows four weapon skins that rotate on a roughly 24-hour cycle. Each offer is fetched directly from Riot's storefront API and displayed with the skin image, name, and VP price.
+
+## What you see
+
+<CardGroup cols={2}>
+  <Card title="Skin name" icon="tag">
+    Displayed at the top of each card. Skins on your wishlist are marked with a ⭐ prefix.
+  </Card>
+  <Card title="VP price" icon="coins">
+    The Valorant Points cost for each offer, shown beneath the skin name alongside the VP icon.
+  </Card>
+  <Card title="Skin image" icon="image">
+    The skin's display icon rendered in the card cover area.
+  </Card>
+  <Card title="Countdown timer" icon="clock">
+    Time remaining until the shop resets, shown in the top-right corner of the screen.
+  </Card>
+</CardGroup>
+
+## Viewing levels and chromas
+
+Each skin card has two action buttons at the bottom:
+
+- **Levels** — opens a media popup showing each upgrade level's display icon or streamed video.
+- **Chromas** — opens a media popup showing each chroma variant's full render or streamed video.
+
+Tap either button to cycle through the available variants for that skin.
+
+## Countdown timer
+
+The timer in the top-right corner counts down to the exact second when the shop refreshes. The remaining duration comes from the `SingleItemOffersRemainingDurationInSeconds` field returned by the Riot storefront endpoint.
+
+<Note>
+  Shop offers refresh roughly every 24 hours, but the exact reset time is tied to your account rather than a fixed wall-clock time. The countdown reflects the actual remaining duration for your account.
+</Note>
+
+## Wishlist indicator
+
+If a skin in your daily shop matches one you have added to your wishlist, a ⭐ appears before the skin name. See [Gallery & wishlist](/features/gallery-wishlist) for how to manage your wishlist.

@@ -1,0 +1,127 @@
+---
+title: Architecture
+description: An overview of how VShop is structured — routing, state management, API layer, and background tasks.
+---
+
+VShop is an [Expo](https://expo.dev) / React Native application that uses [expo-router](https://expo.github.io/router) for file-based routing. This page explains the major layers of the codebase.
+
+## Routing
+
+All routes live in the `app/` directory. expo-router maps each file to a URL segment automatically.
+
+```
+app/
+├── _layout.tsx              # Root layout — providers, theme, splash screen
+├── index.tsx                # Entry point — redirects to /setup or /reauth
+├── setup.tsx                # Onboarding wizard (first-time setup)
+├── reauth.tsx               # Session re-authentication screen
+├── language.tsx             # Language picker (modal)
+└── (authenticated)/
+    ├── _layout.tsx          # Drawer navigator for authenticated screens
+    ├── shop.tsx             # Daily store
+    ├── night_market.tsx     # Night Market
+    ├── bundles.tsx          # Featured bundles
+    ├── accessories.tsx      # Accessories store
+    ├── gallery.tsx          # Cosmetic gallery
+    ├── profile.tsx          # Player profile & match history
+    └── settings.tsx         # App settings
+```
+
+### Root layout
+
+`app/_layout.tsx` is the root of the component tree. On mount it checks `AsyncStorage` for a saved `region` key:
+
+- If a region exists, the user is a returning account holder and the app navigates to `/reauth`.
+- If no region is found, the user is new and the app navigates to `/setup`.
+
+It also syncs `react-native-background-fetch` with the wishlist notification preference stored in Zustand.
+
+### Authenticated drawer
+
+Once a session is established, the app enters the `(authenticated)` route group which renders a side-drawer navigator (`@react-navigation/drawer`). The drawer exposes the following screens:
+
+| Screen | Route | Drawer icon |
+|---|---|---|
+| Bundles | `/(authenticated)/bundles` | `package` |
+| Shop | `/(authenticated)/shop` | `basket` |
+| Accessories | `/(authenticated)/accessories` | `anchor` |
+| Night Market | `/(authenticated)/night_market` | `weather-night` |
+| Profile | `/(authenticated)/profile` | `account` |
+| Gallery | `/(authenticated)/gallery` | `camera-burst` |
+| Settings | `/(authenticated)/settings` | `cog` |
+
+## State management
+
+Global state is handled by [Zustand](https://zustand-demo.pmnd.rs/) (`zustand@4.5.5`). The main stores are:
+
+<CardGroup cols={3}>
+  <Card title="useUserStore" icon="user">
+    Holds the authenticated user's credentials, region, and session tokens.
+  </Card>
+  <Card title="useWishlistStore" icon="heart">
+    Tracks wishlisted skins and controls whether background wishlist notifications are enabled.
+  </Card>
+  <Card title="useFeatureStore" icon="toggle-left">
+    Manages feature flags and opt-in settings such as analytics.
+  </Card>
+</CardGroup>
+
+## API layer
+
+Network calls are split across three utility modules in `utils/`:
+
+| Module | Purpose |
+|---|---|
+| `utils/valorant-api.ts` | Communicates with the unofficial Riot Games API to fetch store, night market, and profile data. |
+| `utils/valorant-assets.ts` | Fetches and caches cosmetic assets (images, names, descriptions) from [valorant-api.com](https://valorant-api.com). |
+| `utils/vshop-api.ts` | Communicates with the VShop backend (`EXPO_PUBLIC_API_URL`) for server-side features. |
+
+HTTP requests use [axios](https://axios-http.com). Because React Native does not include Node's built-in `http`/`https` modules, the Metro bundler is configured to polyfill them with compatible alternatives:
+
+```javascript metro.config.js
+config.resolver.extraNodeModules = {
+  http: require.resolve("@tradle/react-native-http"),
+  url: require.resolve("url"),
+  stream: require.resolve("stream-browserify"),
+  util: require.resolve("util"),
+  events: require.resolve("events"),
+};
+```
+
+## Component library
+
+UI components are built on top of [react-native-paper](https://reactnativepaper.com) (`^4.12.8`). The app runs exclusively in dark mode using a merged theme that combines Paper's `DarkTheme` with React Navigation's `DarkTheme`, with the primary/accent color overridden to `#fa4454`.
+
+The paper Babel plugin is enabled in `babel.config.js` for tree-shaking:
+
+```javascript babel.config.js
+plugins: ["react-native-paper/babel", "react-native-reanimated/plugin"]
+```
+
+<Note>
+  `react-native-reanimated/plugin` must be the last entry in the Babel plugins array.
+</Note>
+
+## Background tasks
+
+`react-native-background-fetch` runs a periodic background task that checks whether any wishlisted skins have appeared in the player's daily store. If a match is found, a local notification is dispatched via `expo-notifications`. The task is initialized or stopped from the root layout based on the `notificationEnabled` flag in `useWishlistStore`.
+
+## Localization
+
+Strings are managed with [i18next](https://www.i18next.com) and [react-i18next](https://react.i18next.com). Locale detection uses `expo-localization` to read the device's preferred language. Translations are contributed through [Weblate](https://hosted.weblate.org/projects/vshop/mobile/).
+
+## TypeScript configuration
+
+The project extends `expo/tsconfig.base` with strict mode enabled. The `~/` path alias resolves to the repository root, allowing imports like `~/components/...` from anywhere in the codebase.
+
+```json tsconfig.json
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "~/*": ["./*"]
+    }
+  }
+}
+```

@@ -1,0 +1,113 @@
+---
+title: "Localization"
+description: "VShop supports 19 languages via i18next and react-i18next. Learn how the language system works and how to add a new translation."
+---
+
+VShop uses [i18next](https://www.i18next.com/) and [react-i18next](https://react.i18next.com/) for internationalization. Translation files are JSON documents stored in `assets/i18n/` and bundled with the app at build time.
+
+Community translations are hosted on **Weblate** at [hosted.weblate.org/projects/vshop/mobile](https://hosted.weblate.org/projects/vshop/mobile/).
+
+## Supported languages
+
+| Language code | Language | valorant-api.com code |
+|---|---|---|
+| `ar` | Arabic | `ar-AE` |
+| `de` | German | `de-DE` |
+| `en` | English | `en-US` |
+| `es` | Spanish | `es-ES` |
+| `fr` | French | `fr-FR` |
+| `it` | Italian | `it-IT` |
+| `jp` | Japanese | `ja-JP` |
+| `ko` | Korean | `ko-KR` |
+| `no` | Norwegian | `en-US` |
+| `pl` | Polish | `pl-PL` |
+| `pt` | Portuguese | `pt-BR` |
+| `ru` | Russian | `ru-RU` |
+| `ta` | Tamil | `en-US` |
+| `th` | Thai | `th-TH` |
+| `tr` | Turkish | `tr-TR` |
+| `uk` | Ukrainian | `vi-VN` |
+| `vi` | Vietnamese | `vi-VN` |
+| `zh-Hans` | Chinese (Simplified) | `zh-CN` |
+| `zh-Hant` | Chinese (Traditional) | `zh-TW` |
+
+<Note>
+  Norwegian (`no`), Tamil (`ta`), and Ukrainian (`uk`) do not have a matching valorant-api.com language code, so skin names and asset data for these languages fall back to English (`en-US`) or Vietnamese (`vi-VN`) respectively.
+</Note>
+
+## How language detection works
+
+On first launch, VShop reads the device locale using `expo-localization`. The detected language code is passed to i18next as the initial language. If the device locale does not match any supported language, the app falls back to English.
+
+Once a user selects a language manually, their choice is persisted in `AsyncStorage` under the key `"language"` and loaded automatically on subsequent launches.
+
+The detection logic lives in `utils/localization.ts`:
+
+```typescript utils/localization.ts
+const langDetector = {
+  type: "languageDetector" as ModuleType,
+  async: true,
+  detect: (callback: any) => {
+    AsyncStorage.getItem("language", (error, result) => {
+      if (error || !result) {
+        const lang = getLocales()[0].languageCode || "en";
+        callback(lang);
+      } else {
+        callback(result);
+      }
+    });
+  },
+  cacheUserLanguage: (language: string) => {
+    AsyncStorage.setItem("language", language);
+  },
+};
+```
+
+## The `getVAPILang()` function
+
+`getVAPILang()` in `utils/localization.ts` maps the active i18next language to the language code expected by [valorant-api.com](https://valorant-api.com). This code is used when fetching skin names, descriptions, and other game asset data so that content is returned in the user's language.
+
+```typescript utils/localization.ts
+export const getVAPILang = () => {
+  const translation = resources[i18n.language as keyof typeof resources];
+  return translation ? translation.VAPILangCode : "en-US";
+};
+```
+
+If the active language is not in the `resources` map (e.g. an unsupported locale), the function returns `"en-US"` as a safe fallback.
+
+## Language screen
+
+The **Language** screen (`app/language.tsx`) lets users switch their language from within the app. It renders a scrollable list of radio buttons, one per supported language, using the display name from the active translation namespace (`languages.<code>`).
+
+Selecting a language calls `i18n.changeLanguage(value)`, which immediately re-renders all translated strings and navigates back to the previous screen. The selection is saved to `AsyncStorage` automatically by the `cacheUserLanguage` hook.
+
+## Adding a new translation
+
+<Steps>
+  <Step title="Create the translation file">
+    Add a new JSON file to `assets/i18n/` using the ISO 639 language code as the filename (e.g. `assets/i18n/nl.json`). Use `assets/i18n/en.json` as a reference for all required keys.
+  </Step>
+  <Step title="Register the language in localization.ts">
+    Import the new file and add an entry to the `resources` object in `utils/localization.ts`. Set `VAPILangCode` to the closest matching code supported by valorant-api.com.
+
+    ```typescript
+    import nl from "~/assets/i18n/nl.json";
+
+    export const resources = {
+      // ...existing entries
+      nl: { translation: nl, VAPILangCode: "en-US" },
+    };
+    ```
+  </Step>
+  <Step title="Add the display name">
+    Add a `languages.nl` key to every existing translation file so the language name appears correctly in the Language screen for all users.
+  </Step>
+  <Step title="Contribute via Weblate">
+    For community-contributed translations, submit your work through the Weblate project at [hosted.weblate.org/projects/vshop/mobile](https://hosted.weblate.org/projects/vshop/mobile/). Weblate changes sync back to the repository automatically.
+  </Step>
+</Steps>
+
+<Tip>
+  If valorant-api.com does not support your target language, set `VAPILangCode` to `"en-US"`. Game asset names will display in English while the app UI uses your new translation.
+</Tip>

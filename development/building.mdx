@@ -1,0 +1,119 @@
+---
+title: Building
+description: How to build VShop for production and development using EAS (Expo Application Services).
+---
+
+VShop uses [EAS Build](https://docs.expo.dev/build/introduction/) to produce Android APKs. The configuration lives in `eas.json` at the repository root.
+
+## EAS configuration
+
+```json eas.json
+{
+  "cli": {
+    "version": ">= 12.5.1",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "android": {
+        "buildType": "apk"
+      },
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}
+```
+
+Both profiles produce `.apk` files rather than `.aab` bundles so that the output can be sideloaded directly. The version number is sourced from `app.json` (`appVersionSource: "local"`) rather than from the EAS servers.
+
+## App identifiers and version
+
+| Field | Value |
+|---|---|
+| App version | `3.1.2` |
+| Android `versionCode` | `77` |
+| Android package | `dev.vasc.vshop2` |
+| iOS bundle identifier | `dev.vasc.vshop` |
+| EAS project ID | `ac45f951-5b85-4ba9-85e4-fa80e892f9e0` |
+
+## Prebuild
+
+Before running a native build for the first time, or after changing native dependencies, regenerate the native project directories:
+
+```bash
+pnpm prebuild:android
+```
+
+This runs `expo prebuild --platform android --clean`, which deletes and recreates the `android/` directory based on `app.json` and the installed Expo plugins.
+
+<Warning>
+  `--clean` removes any manual edits to the `android/` directory. Do not hand-edit native project files unless you are prepared to re-apply those changes after every prebuild.
+</Warning>
+
+## Building with EAS
+
+<Tabs>
+  <Tab title="Production">
+    The production profile builds a release APK suitable for distribution via GitHub Releases:
+
+    ```bash
+    eas build --platform android --profile production
+    ```
+
+    <Note>
+      You must be logged in to an Expo account that has access to the `the_vasc/vshop` EAS project to trigger a build.
+    </Note>
+  </Tab>
+  <Tab title="Development">
+    The development profile produces an internal-distribution APK that includes the Expo dev client, allowing you to connect to a local Metro server:
+
+    ```bash
+    eas build --platform android --profile development
+    ```
+
+    Install this APK on your device, then start the local server with `pnpm start` and scan the QR code to connect.
+  </Tab>
+</Tabs>
+
+## APK distribution
+
+Production APKs are published as assets on [GitHub Releases](https://github.com/VShopApp/mobile/releases). Users download `VShop.apk` directly from the latest release and sideload it onto their device.
+
+<Info>
+  There is no Play Store listing. All distribution happens through GitHub Releases, which means users must enable installation from unknown sources on their Android device.
+</Info>
+
+## Build summary
+
+<CardGroup cols={2}>
+  <Card title="Production build" icon="package">
+    ```bash
+    eas build --platform android --profile production
+    ```
+    Release APK — no dev client, suitable for end users.
+  </Card>
+  <Card title="Development build" icon="code">
+    ```bash
+    eas build --platform android --profile development
+    ```
+    Debug APK with Expo dev client for local development.
+  </Card>
+  <Card title="Prebuild Android" icon="refresh-cw">
+    ```bash
+    pnpm prebuild:android
+    ```
+    Regenerates the `android/` native project directory.
+  </Card>
+  <Card title="Local dev server" icon="play">
+    ```bash
+    pnpm start
+    ```
+    Starts the Metro bundler for use with a development build.
+  </Card>
+</CardGroup>

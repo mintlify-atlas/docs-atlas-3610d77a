@@ -1,0 +1,130 @@
+---
+title: Contributing
+description: How to set up a local development environment and contribute to VShop.
+---
+
+VShop is a community-driven project released under the [GPL-3.0 license](https://www.gnu.org/licenses/gpl-3.0.html). Contributions of all kinds — code, bug reports, and translations — are welcome.
+
+## Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+- [Node.js](https://nodejs.org) (LTS recommended)
+- [pnpm](https://pnpm.io) `9.15.4`
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- Android Studio or a physical Android device for native testing
+
+<Tip>
+  The project's `packageManager` field is locked to `pnpm@9.15.4`. Using a different package manager or pnpm version may produce unexpected results.
+</Tip>
+
+## Getting started
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    Fork the [VShopApp/mobile](https://github.com/VShopApp/mobile) repository on GitHub, then clone your fork locally:
+
+    ```bash
+    git clone https://github.com/<your-username>/mobile.git
+    cd mobile
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Copy the example env file and fill in the required values:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    ```bash .env
+    # Required
+    EXPO_PUBLIC_API_URL=
+
+    # Optional
+    EXPO_PUBLIC_STRIPE_PUBLIC_KEY=
+    EXPO_PUBLIC_PLAUSIBLE_URL=
+    EXPO_PUBLIC_PLAUSIBLE_DOMAIN=
+    ```
+
+    `EXPO_PUBLIC_API_URL` must point to a running VShop backend instance. The remaining variables are optional and only needed if you are working on donation or analytics features.
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    pnpm start
+    ```
+
+    This runs `expo start` and opens the Expo developer tools. You can then launch the app on a connected device, emulator, or Expo Go.
+  </Step>
+</Steps>
+
+## Running on a device or emulator
+
+<Tabs>
+  <Tab title="Android">
+    Connect a physical device with USB debugging enabled, or start an Android emulator, then run:
+
+    ```bash
+    pnpm android
+    ```
+
+    Alternatively:
+
+    ```bash
+    pnpm run:android
+    ```
+
+    Both commands invoke `expo run:android` and build a debug APK that installs directly on the connected device.
+
+    <Note>
+      A development build (not Expo Go) is required because VShop uses native modules such as `react-native-background-fetch`. Run `pnpm prebuild:android` before the first `pnpm android` to generate the native Android project.
+    </Note>
+  </Tab>
+  <Tab title="iOS">
+    ```bash
+    pnpm ios
+    ```
+
+    iOS builds require macOS and Xcode. Run `pnpm prebuild:ios` before the first `pnpm ios` to generate the native iOS project.
+  </Tab>
+</Tabs>
+
+## Linting
+
+The project uses ESLint via `eslint-config-expo`. Run the linter before submitting a pull request:
+
+```bash
+pnpm lint
+```
+
+## Translations
+
+Translations are managed on [Weblate](https://hosted.weblate.org/projects/vshop/mobile/). If you want to add or improve a translation, please contribute there rather than editing the source files directly. No coding experience is required.
+
+## Pull request guidelines
+
+<CardGroup cols={2}>
+  <Card title="Keep changes focused" icon="git-pull-request">
+    One pull request should address one concern — a bug fix, a feature, or a refactor. Avoid bundling unrelated changes.
+  </Card>
+  <Card title="Describe your changes" icon="file-text">
+    Explain *what* changed and *why*. Reference any related issues using `Closes #<issue>` in the PR description.
+  </Card>
+  <Card title="Follow existing code style" icon="code">
+    Run `pnpm lint` and ensure there are no new errors. Match the formatting and patterns used in the files you touch.
+  </Card>
+  <Card title="Test on a real device" icon="smartphone">
+    Where possible, test your changes on a physical Android device in addition to an emulator.
+  </Card>
+</CardGroup>
+
+<Warning>
+  VShop is licensed under GPL-3.0. By submitting a pull request, you agree that your contribution will be distributed under the same license.
+</Warning>

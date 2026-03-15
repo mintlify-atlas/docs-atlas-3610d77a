@@ -1,0 +1,49 @@
+---
+title: "Profile"
+description: "View your Riot account name, region, level, XP, and in-game currency balances."
+---
+
+The profile screen gives you a summary of your Valorant account at a glance — identity, progression, and currency balances all in one place.
+
+## Account identity
+
+At the top of the screen, VShop displays:
+
+- **Avatar** — a circle showing the first two letters of your in-game name.
+- **Display name** — your Riot `GameName`, fetched from the Riot name-service API at login.
+
+## Account info
+
+| Field | Description |
+|---|---|
+| Region | The Riot region your account is registered to (e.g. EU, NA, AP, KR). |
+
+## Progression
+
+| Field | Description |
+|---|---|
+| Level | Your current Valorant account level, sourced from the Account XP endpoint. |
+| XP | Your current XP within the active level. |
+
+## Currency balances
+
+VShop shows all four in-game currency balances fetched from the Riot wallet endpoint:
+
+<CardGroup cols={2}>
+  <Card title="Valorant Points (VP)" icon="coins">
+    The premium currency used to purchase skins and bundles in the store.
+  </Card>
+  <Card title="Radianite Points (RAD)" icon="gem">
+    Used to upgrade owned weapon skins to higher levels.
+  </Card>
+  <Card title="Kingdom Credits (KC)" icon="credit-card">
+    Earned through gameplay; used to purchase items in the accessory shop.
+  </Card>
+  <Card title="Free Agents (FAG)" icon="user-group">
+    Currency used for unlocking agents through the in-game agent recruitment system.
+  </Card>
+</CardGroup>
+
+<Note>
+  Balances are fetched when you log in and are not updated in real time. Pull down to refresh the app if you need up-to-date balances after making a purchase.
+</Note>
